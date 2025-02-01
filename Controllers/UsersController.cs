@@ -1,12 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FitAI.Data;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using MySql.Data.MySqlClient;
 using FitAI.Models;
-using System.Data;
-using System.Security.Cryptography;
-using System.Text;
+using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 namespace FitAI.Controllers
 {
@@ -14,21 +13,13 @@ namespace FitAI.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
-        private readonly string _connectionString;
+        private readonly AppDbContext _context;
         private readonly ILogger<UsersController> _logger;
 
-        public UsersController(IConfiguration configuration, ILogger<UsersController> logger)
+        public UsersController(AppDbContext context, ILogger<UsersController> logger)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _context = context;
             _logger = logger;
-        }
-
-        // Метод для хеширования пароля
-        private static string HashPassword(string password)
-        {
-            using var sha256 = SHA256.Create();
-            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return Convert.ToBase64String(hashedBytes);
         }
 
         // Регистрация пользователя
@@ -36,38 +27,27 @@ namespace FitAI.Controllers
         public async Task<IActionResult> Register(User user)
         {
             _logger.LogInformation("Начало регистрации пользователя.");
-            using var connection = new MySqlConnection(_connectionString);
+
             try
             {
-                await connection.OpenAsync();
-                _logger.LogInformation("Подключение к базе данных успешно открыто.");
-
                 // Проверяем, существует ли пользователь
-                var checkQuery = "SELECT COUNT(*) FROM Users WHERE Email = @Email";
-                using var checkCommand = new MySqlCommand(checkQuery, connection);
-                checkCommand.Parameters.AddWithValue("@Email", user.Email);
-                var exists = (long)await checkCommand.ExecuteScalarAsync();
+                var existingUser = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Email == user.Email);
 
-                if (exists > 0)
+                if (existingUser != null)
                 {
                     _logger.LogWarning("Попытка регистрации существующего пользователя: {Email}", user.Email);
                     return BadRequest(new { message = "Пользователь с таким Email уже существует." });
                 }
 
-                // Хешируем пароль
-                string hashedPassword = HashPassword(user.Password);
-
-                // Вставляем пользователя
-                var insertQuery = "INSERT INTO Users (Password, Email) VALUES (@Password, @Email)";
-                using var command = new MySqlCommand(insertQuery, connection);
-                command.Parameters.AddWithValue("@Password", hashedPassword);
-                command.Parameters.AddWithValue("@Email", user.Email);
-                await command.ExecuteNonQueryAsync();
+                // Добавляем пользователя в базу данных
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Пользователь {Email} успешно зарегистрирован.", user.Email);
                 return Ok(new { message = "Регистрация прошла успешно." });
             }
-            catch (MySqlException ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка при регистрации пользователя {Email}.", user.Email);
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка при регистрации." });
@@ -79,32 +59,23 @@ namespace FitAI.Controllers
         public async Task<IActionResult> Login(User user)
         {
             _logger.LogInformation("Попытка входа пользователя: {Email}", user.Email);
-            using var connection = new MySqlConnection(_connectionString);
+
             try
             {
-                await connection.OpenAsync();
-                _logger.LogInformation("Подключение к базе данных успешно открыто.");
+                // Поиск пользователя по email
+                var existingUser = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Email == user.Email);
 
-                // Запрос только пароля (улучшает безопасность)
-                var command = new MySqlCommand("SELECT UserID, Password FROM Users WHERE Email = @Email", connection);
-                command.Parameters.AddWithValue("@Email", user.Email);
-                using var reader = await command.ExecuteReaderAsync();
-
-                if (await reader.ReadAsync())
+                if (existingUser == null || existingUser.Password != user.Password) // Без хеширования
                 {
-                    string storedPassword = reader.GetString(reader.GetOrdinal("Password"));
-                    if (storedPassword == HashPassword(user.Password))
-                    {
-                        int userId = reader.GetInt32(reader.GetOrdinal("UserID"));
-                        _logger.LogInformation("Пользователь {Email} успешно вошел в систему.", user.Email);
-                        return Ok(new { UserID = userId, Email = user.Email });
-                    }
+                    _logger.LogWarning("Неудачная попытка входа: {Email}", user.Email);
+                    return Unauthorized(new { message = "Неправильный Email или пароль." });
                 }
 
-                _logger.LogWarning("Неудачная попытка входа: {Email}", user.Email);
-                return Unauthorized(new { message = "Неправильный Email или пароль." });
+                _logger.LogInformation("Пользователь {Email} успешно вошел в систему.", user.Email);
+                return Ok(new { UserID = existingUser.UserID, Email = existingUser.Email });
             }
-            catch (MySqlException ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка входа пользователя {Email}.", user.Email);
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка при попытке входа." });

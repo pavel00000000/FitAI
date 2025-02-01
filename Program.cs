@@ -1,10 +1,5 @@
-using FitAI.Controllers;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using FitAI.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace FitAI
 {
@@ -18,6 +13,9 @@ namespace FitAI
             builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
             // Добавляем сервисы в контейнер
+            builder.Services.AddDbContext<AppDbContext>(options =>
+                options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"))); // Используем SQLite
+
             builder.Services.AddControllers(); // Подключаем контроллеры
             builder.Services.AddEndpointsApiExplorer(); // Подключаем документацию API
             builder.Services.AddSwaggerGen(); // Добавляем Swagger

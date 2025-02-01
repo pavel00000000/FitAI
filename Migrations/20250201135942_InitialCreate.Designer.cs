@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FitAI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250201132806_InitialCreate")]
+    [Migration("20250201135942_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

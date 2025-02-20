@@ -61,8 +61,13 @@ namespace FitAI.Controllers
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
+                // Создаём пустой профиль сразу после регистрации (опционально)
+                var userProfile = new UserProfile { UserID = user.UserID };
+                _context.UserProfiles.Add(userProfile);
+                await _context.SaveChangesAsync();
+
                 _logger.LogInformation("Пользователь {Email} успешно зарегистрирован.", model.Email);
-                return Ok(new { message = "Регистрация прошла успешно." });
+                return Ok(new { message = "Регистрация прошла успешно.", UserID = user.UserID });
             }
             catch (Exception ex)
             {

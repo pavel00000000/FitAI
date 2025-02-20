@@ -16,7 +16,12 @@ namespace FitAI
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"))); // Используем SQLite
 
-            builder.Services.AddControllers(); // Подключаем контроллеры
+            builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+                }); // Подключаем контроллеры и добавляем настройку конвертера для перечислений
+
             builder.Services.AddEndpointsApiExplorer(); // Подключаем документацию API
             builder.Services.AddSwaggerGen(); // Добавляем Swagger
 

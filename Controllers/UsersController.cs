@@ -6,6 +6,9 @@ using FitAI.Models;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System;
+using System.Text;
 
 namespace FitAI.Controllers
 {
@@ -22,51 +25,64 @@ namespace FitAI.Controllers
             _logger = logger;
         }
 
+        // Модель для регистрации
+        public class RegisterModel
+        {
+            public string Email { get; set; }
+            public string Password { get; set; }
+            public string ConfirmPassword { get; set; }
+        }
+
         // Регистрация пользователя
         [HttpPost("register")]
-        public async Task<IActionResult> Register(User user)
+        public async Task<IActionResult> Register([FromBody] RegisterModel model)
         {
             _logger.LogInformation("Начало регистрации пользователя.");
 
+            if (model.Password != model.ConfirmPassword)
+            {
+                return BadRequest(new { message = "Пароли не совпадают." });
+            }
+
             try
             {
-                // Проверяем, существует ли пользователь
                 var existingUser = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Email == user.Email);
+                    .FirstOrDefaultAsync(u => u.Email == model.Email);
 
                 if (existingUser != null)
                 {
-                    _logger.LogWarning("Попытка регистрации существующего пользователя: {Email}", user.Email);
+                    _logger.LogWarning("Попытка регистрации существующего пользователя: {Email}", model.Email);
                     return BadRequest(new { message = "Пользователь с таким Email уже существует." });
                 }
 
-                // Добавляем пользователя в базу данных
+                string hashedPassword = HashPassword(model.Password);
+
+                var user = new User { Email = model.Email, Password = hashedPassword };
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Пользователь {Email} успешно зарегистрирован.", user.Email);
+                _logger.LogInformation("Пользователь {Email} успешно зарегистрирован.", model.Email);
                 return Ok(new { message = "Регистрация прошла успешно." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка при регистрации пользователя {Email}.", user.Email);
+                _logger.LogError(ex, "Ошибка при регистрации пользователя {Email}.", model.Email);
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка при регистрации." });
             }
         }
 
         // Аутентификация пользователя
         [HttpPost("login")]
-        public async Task<IActionResult> Login(User user)
+        public async Task<IActionResult> Login([FromBody] User user)
         {
             _logger.LogInformation("Попытка входа пользователя: {Email}", user.Email);
 
             try
             {
-                // Поиск пользователя по email
                 var existingUser = await _context.Users
                     .FirstOrDefaultAsync(u => u.Email == user.Email);
 
-                if (existingUser == null || existingUser.Password != user.Password) // Без хеширования
+                if (existingUser == null || !VerifyPassword(user.Password, existingUser.Password))
                 {
                     _logger.LogWarning("Неудачная попытка входа: {Email}", user.Email);
                     return Unauthorized(new { message = "Неправильный Email или пароль." });
@@ -80,6 +96,21 @@ namespace FitAI.Controllers
                 _logger.LogError(ex, "Ошибка входа пользователя {Email}.", user.Email);
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка при попытке входа." });
             }
+        }
+
+        private string HashPassword(string password)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+                return BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
+            }
+        }
+
+        private bool VerifyPassword(string enteredPassword, string storedHash)
+        {
+            string enteredHash = HashPassword(enteredPassword);
+            return enteredHash == storedHash;
         }
     }
 }

@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System;
 using System.Text;
+using System.ComponentModel.DataAnnotations;
 
 namespace FitAI.Controllers
 {
@@ -24,6 +25,16 @@ namespace FitAI.Controllers
             _context = context;
             _logger = logger;
         }
+        public class LoginModel
+        {
+            [Required(ErrorMessage = "Email обязателен.")]
+            [EmailAddress(ErrorMessage = "Некорректный формат Email.")]
+            public string Email { get; set; }
+
+            [Required(ErrorMessage = "Пароль обязателен.")]
+            [MinLength(6, ErrorMessage = "Пароль должен содержать минимум 6 символов.")]
+            public string Password { get; set; }
+        }
 
         // Модель для регистрации
         public class RegisterModel
@@ -32,6 +43,24 @@ namespace FitAI.Controllers
             public string Password { get; set; }
             public string ConfirmPassword { get; set; }
         }
+        // Модель для профиля пользователя
+        public class UserProfileModel
+        {
+            public string FullName { get; set; }
+            public string BodyType { get; set; }
+            public int? Height { get; set; }
+            public int? Weight { get; set; }
+            public int? Age { get; set; }
+            public Gender? Sex { get; set; }
+            public string MainGoals { get; set; }
+            public PhysicalFitnessLevel? LevelOfPhysicalFitness { get; set; }
+        }
+
+
+
+
+
+
 
         // Регистрация пользователя
         [HttpPost("register")]
@@ -74,27 +103,27 @@ namespace FitAI.Controllers
         }
         // Аутентификация пользователя
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] User user)
+        public async Task<IActionResult> Login([FromBody] LoginModel model)
         {
-            _logger.LogInformation("Попытка входа пользователя: {Email}", user.Email);
+            _logger.LogInformation("Попытка входа пользователя: {Email}", model.Email);
 
             try
             {
                 var existingUser = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Email == user.Email);
+                    .FirstOrDefaultAsync(u => u.Email == model.Email);
 
-                if (existingUser == null || !VerifyPassword(user.Password, existingUser.Password))
+                if (existingUser == null || !VerifyPassword(model.Password, existingUser.Password))
                 {
-                    _logger.LogWarning("Неудачная попытка входа: {Email}", user.Email);
+                    _logger.LogWarning("Неудачная попытка входа: {Email}", model.Email);
                     return Unauthorized(new { message = "Неправильный Email или пароль." });
                 }
 
-                _logger.LogInformation("Пользователь {Email} успешно вошел в систему.", user.Email);
+                _logger.LogInformation("Пользователь {Email} успешно вошел в систему.", model.Email);
                 return Ok(new { UserID = existingUser.UserID, Email = existingUser.Email });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка входа пользователя {Email}.", user.Email);
+                _logger.LogError(ex, "Ошибка входа пользователя {Email}.", model.Email);
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка при попытке входа." });
             }
         }
@@ -112,6 +141,52 @@ namespace FitAI.Controllers
         {
             string enteredHash = HashPassword(enteredPassword);
             return enteredHash == storedHash;
+        }
+       
+        // Создание/обновление профиля
+        [HttpPost("profile")]
+        public async Task<IActionResult> UpdateProfile(int userId, [FromBody] UserProfileModel model)
+        {
+            _logger.LogInformation("Попытка обновления профиля для пользователя с ID: {UserID}", userId);
+
+            try
+            {
+                var user = await _context.Users
+                    .Include(u => u.UserProfile) // Подгружаем существующий профиль
+                    .FirstOrDefaultAsync(u => u.UserID == userId);
+
+                if (user == null)
+                {
+                    _logger.LogWarning("Пользователь с ID {UserID} не найден.", userId);
+                    return NotFound(new { message = "Пользователь не найден." });
+                }
+
+                // Если профиля еще нет, создаем новый
+                if (user.UserProfile == null)
+                {
+                    user.UserProfile = new UserProfile { UserID = userId };
+                }
+
+                // Обновляем данные профиля
+                user.UserProfile.FullName = model.FullName;
+                user.UserProfile.BodyType = model.BodyType;
+                user.UserProfile.Height = model.Height;
+                user.UserProfile.Weight = model.Weight; // Исправлено с model.Width на model.Weight
+                user.UserProfile.Age = model.Age;
+                user.UserProfile.Sex = model.Sex;
+                user.UserProfile.MainGoals = model.MainGoals;
+                user.UserProfile.LevelOfPhysicalFitness = model.LevelOfPhysicalFitness;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Профиль пользователя с ID {UserID} успешно обновлен.", userId);
+                return Ok(new { message = "Профиль успешно обновлен.", UserID = userId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при обновлении профиля пользователя с ID {UserID}.", userId);
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка при обновлении профиля." });
+            }
         }
     }
 }

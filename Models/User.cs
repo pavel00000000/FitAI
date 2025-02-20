@@ -15,52 +15,38 @@ namespace FitAI.Models
         [MinLength(6, ErrorMessage = "Пароль должен содержать минимум 6 символов.")]
         public string Password { get; set; }
 
-        public UserProfile UserProfile { get; set; }
+       
     }
 
-    public class UserProfile
-    {
-        [Key, ForeignKey("User")]
-        public int UserID { get; set; }
-
-        public User User { get; set; } // Навигационное свойство, не требуется в запросе
-
-        [Required(ErrorMessage = "Полное имя обязательно.")]
-        public string FullName { get; set; } // Обязательное
-
-        [Required(ErrorMessage = "Тип тела обязателен.")]
-        public string BodyType { get; set; } // Обязательное
-
-        [Required(ErrorMessage = "Рост обязателен.")]
-        public int? Height { get; set; } // Обязательное
-
-        [Required(ErrorMessage = "Вес обязателен.")]
-        public int? Weight { get; set; } // Обязательное
-
-        [Required(ErrorMessage = "Возраст обязателен.")]
-        public int? Age { get; set; } // Обязательное
-
-        [Required(ErrorMessage = "Пол обязателен.")]
-        public Gender? Sex { get; set; } // Обязательное
-
-        [Required(ErrorMessage = "Основная цель обязательна.")]
-        public string MainGoals { get; set; } // Обязательное
-
-        [Required(ErrorMessage = "Уровень физической подготовки обязателен.")]
-        public PhysicalFitnessLevel? LevelOfPhysicalFitness { get; set; } // Обязательное
-    }
-
-
-    public enum Gender
-    {
-        Male,
-        Female
-    }
-
-    public enum PhysicalFitnessLevel
-    {
-        Beginner,
-        Intermediate,
-        Advanced
-    }
+    
 }
+
+//public class UserProfile
+//{
+//    [Key, ForeignKey("User")]
+//    public int UserID { get; set; }
+
+//    public User User { get; set; } // Навигационное свойство
+
+//    public string FullName { get; set; } 
+//    public string BodyType { get; set; } 
+//    public int? Height { get; set; } 
+//    public int? Weight { get; set; } 
+//    public int? Age { get; set; } 
+//    public Gender? Sex { get; set; } 
+//    public string MainGoals { get; set; }
+//    public PhysicalFitnessLevel? LevelOfPhysicalFitness { get; set; } 
+//}
+
+//public enum Gender
+//{
+//    Male,
+//    Female
+//}
+
+//public enum PhysicalFitnessLevel
+//{
+//    Beginner,
+//    Intermediate,
+//    Advanced
+//}

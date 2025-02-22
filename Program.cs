@@ -12,18 +12,35 @@ namespace FitAI
             // Добавляем конфигурацию из appsettings.json
             builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
-            // Добавляем сервисы в контейнер
+            // Подключаем базу данных SQLite
             builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"))); // Используем SQLite
+                options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+            // Настраиваем контроллеры и JSON-сериализацию
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
-                }); // Подключаем контроллеры и добавляем настройку конвертера для перечислений
+                    options.JsonSerializerOptions.PropertyNamingPolicy = null; // Сохраняем имена свойств как есть
+                });
 
-            builder.Services.AddEndpointsApiExplorer(); // Подключаем документацию API
-            builder.Services.AddSwaggerGen(); // Добавляем Swagger
+            // Добавляем Swagger для документации API
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "FitAI API", Version = "v1" });
+            });
+
+            // Настраиваем CORS для разрешения запросов с любого origin (только для тестов, не для продакшена!)
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowLocalhost", builder =>
+                {
+                    builder.AllowAnyOrigin() // Разрешаем все origin'ы (только для тестов, не для продакшена!)
+                           .AllowAnyMethod()
+                           .AllowAnyHeader();
+                });
+            });
 
             // Настраиваем логирование
             builder.Services.AddLogging(logging =>
@@ -34,7 +51,7 @@ namespace FitAI
 
             var app = builder.Build();
 
-            // Включаем Swagger при разработке
+            // Настраиваем middleware
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -43,7 +60,11 @@ namespace FitAI
 
             app.UseStaticFiles();
             app.UseHttpsRedirection();
-            app.UseAuthorization();
+
+            // Включаем CORS
+            app.UseCors("AllowLocalhost");
+
+            // Убираем UseAuthentication и UseAuthorization, так как нет токенов
             app.MapControllers();
 
             app.Run();

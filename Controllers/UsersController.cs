@@ -118,8 +118,14 @@ namespace FitAI.Controllers
                     return Unauthorized(new { message = "Неправильный Email или пароль." });
                 }
 
-                _logger.LogInformation("Пользователь {Email} успешно вошел в систему.", model.Email);
-                return Ok(new { UserID = existingUser.UserID, Email = existingUser.Email });
+                if (existingUser.UserID <= 0)
+                {
+                    _logger.LogError("Некорректный UserID для пользователя {Email}: {UserID}", model.Email, existingUser.UserID);
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка: некорректный идентификатор пользователя." });
+                }
+
+                _logger.LogInformation("Пользователь {Email} успешно вошел в систему. UserID: {UserID}", model.Email, existingUser.UserID);
+                return Ok(new { userId = existingUser.UserID, email = existingUser.Email });
             }
             catch (Exception ex)
             {

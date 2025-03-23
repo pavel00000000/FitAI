@@ -25,10 +25,10 @@ namespace FitAI.Controllers
         // Модель для ввода данных пользователем для генерации плана
         public class GenerateWorkoutModel
         {
-            public string Goals { get; set; } // Цели (например, "похудеть", "набрать массу")
-            public string Preferences { get; set; } // Предпочтения (например, "без тяжелых весов")
-            public bool HasEquipment { get; set; } // Наличие инвентаря
-            public string Restrictions { get; set; } // Ограничения (например, "проблемы с коленями")
+            public string Goals { get; set; }
+            public string Preferences { get; set; }
+            public bool HasEquipment { get; set; }
+            public string Restrictions { get; set; }
             public PhysicalFitnessLevel? LevelOfPhysicalFitness { get; set; }
         }
 
@@ -41,6 +41,30 @@ namespace FitAI.Controllers
             public int? Weight { get; set; }
             public int? Repetitions { get; set; }
             public int? Approaches { get; set; }
+        }
+
+        // Модель для ввода показателей силы (первый скриншот)
+        public class PowerIndicatorInputModel
+        {
+            public int UserId { get; set; }
+            public PowerIndicatorExercise Deadlift { get; set; }
+            public PowerIndicatorExercise LegPress { get; set; }
+            public PowerIndicatorExercise BenchPress { get; set; }
+        }
+
+        public class PowerIndicatorExercise
+        {
+            public int? Weight { get; set; }
+            public int? Repetitions { get; set; }
+            public int? Approaches { get; set; }
+        }
+
+        // Модель для изменения веса
+        public class UpdateWeightModel
+        {
+            public int UserId { get; set; }
+            public string ExerciseName { get; set; }
+            public int WeightChange { get; set; }
         }
 
         // Получение готовых планов
@@ -162,7 +186,6 @@ namespace FitAI.Controllers
                     return NotFound(new { message = "План тренировок не найден." });
                 }
 
-                // Маппинг в DTO
                 var workoutPlanDto = new WorkoutPlanDto
                 {
                     WorkoutPlanId = workoutPlan.WorkoutPlanId,
@@ -193,6 +216,175 @@ namespace FitAI.Controllers
             }
         }
 
+        // Получение показателей силы (второй скриншот)
+        [HttpGet("power-indicators/{userId}")]
+        public async Task<IActionResult> GetPowerIndicators(int userId)
+        {
+            _logger.LogInformation("Запрос показателей силы для пользователя с ID: {UserID}", userId);
+
+            try
+            {
+                var workoutPlan = await _context.WorkoutPlans
+                    .Include(wp => wp.Exercises)
+                    .FirstOrDefaultAsync(wp => wp.UserID == userId);
+
+                if (workoutPlan == null)
+                {
+                    _logger.LogWarning("План тренировок для пользователя с ID {UserID} не найден.", userId);
+                    return NotFound(new { message = "План тренировок не найден." });
+                }
+
+                var powerIndicators = workoutPlan.Exercises
+                    .Where(e => e.ExerciseName == "Deadlift" || e.ExerciseName == "Leg Press" || e.ExerciseName == "Bench Press")
+                    .Select(e => new
+                    {
+                        ExerciseName = e.ExerciseName,
+                        Weight = e.Weight,
+                        Repetitions = e.Repetitions,
+                        Approaches = e.Approaches
+                    })
+                    .ToList();
+
+                _logger.LogInformation("Показатели силы успешно возвращены для пользователя с ID {UserID}.", userId);
+                return Ok(powerIndicators);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при получении показателей силы для пользователя с ID {UserID}.", userId);
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка при получении показателей силы." });
+            }
+        }
+
+        // Сохранение показателей силы (первый скриншот)
+        [HttpPost("save-power-indicators")]
+        public async Task<IActionResult> SavePowerIndicators([FromBody] PowerIndicatorInputModel model)
+        {
+            _logger.LogInformation("Попытка сохранения показателей силы для пользователя с ID: {UserID}", model.UserId);
+
+            try
+            {
+                var existingPlan = await _context.WorkoutPlans
+                    .Include(wp => wp.Exercises)
+                    .FirstOrDefaultAsync(wp => wp.UserID == model.UserId);
+
+                if (existingPlan == null)
+                {
+                    existingPlan = new WorkoutPlan
+                    {
+                        UserID = model.UserId,
+                        PlanName = "Power Indicators Plan",
+                        Description = "План для отслеживания показателей силы",
+                        LevelOfPhysicalFitness = PhysicalFitnessLevel.Beginner,
+                        CreatedDate = DateTime.UtcNow
+                    };
+                    _context.WorkoutPlans.Add(existingPlan);
+                    await _context.SaveChangesAsync();
+                }
+
+                var existingExercises = existingPlan.Exercises
+                    .Where(e => e.ExerciseName == "Deadlift" || e.ExerciseName == "Leg Press" || e.ExerciseName == "Bench Press")
+                    .ToList();
+                _context.WorkoutExercises.RemoveRange(existingExercises);
+
+                var exercisesToAdd = new List<WorkoutExercise>();
+
+                if (model.Deadlift != null)
+                {
+                    exercisesToAdd.Add(new WorkoutExercise
+                    {
+                        WorkoutPlanId = existingPlan.WorkoutPlanId,
+                        ExerciseName = "Deadlift",
+                        ExerciseType = "Strength",
+                        Weight = model.Deadlift.Weight,
+                        Repetitions = model.Deadlift.Repetitions,
+                        Approaches = model.Deadlift.Approaches
+                    });
+                }
+
+                if (model.LegPress != null)
+                {
+                    exercisesToAdd.Add(new WorkoutExercise
+                    {
+                        WorkoutPlanId = existingPlan.WorkoutPlanId,
+                        ExerciseName = "Leg Press",
+                        ExerciseType = "Strength",
+                        Weight = model.LegPress.Weight,
+                        Repetitions = model.LegPress.Repetitions,
+                        Approaches = model.LegPress.Approaches
+                    });
+                }
+
+                if (model.BenchPress != null)
+                {
+                    exercisesToAdd.Add(new WorkoutExercise
+                    {
+                        WorkoutPlanId = existingPlan.WorkoutPlanId,
+                        ExerciseName = "Bench Press",
+                        ExerciseType = "Strength",
+                        Weight = model.BenchPress.Weight,
+                        Repetitions = model.BenchPress.Repetitions,
+                        Approaches = model.BenchPress.Approaches
+                    });
+                }
+
+                _context.WorkoutExercises.AddRange(exercisesToAdd);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Показатели силы успешно сохранены для пользователя с ID {UserID}.", model.UserId);
+                return Ok(new { message = "Показатели силы успешно сохранены.", WorkoutPlanId = existingPlan.WorkoutPlanId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при сохранении показателей силы для пользователя с ID {UserID}.", model.UserId);
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка при сохранении показателей силы." });
+            }
+        }
+
+        // Изменение веса (+5 кг или -10 кг)
+        [HttpPut("update-weight")]
+        public async Task<IActionResult> UpdateWeight([FromBody] UpdateWeightModel model)
+        {
+            _logger.LogInformation("Попытка изменения веса для упражнения {ExerciseName} пользователя с ID: {UserID}", model.ExerciseName, model.UserId);
+
+            try
+            {
+                var workoutPlan = await _context.WorkoutPlans
+                    .Include(wp => wp.Exercises)
+                    .FirstOrDefaultAsync(wp => wp.UserID == model.UserId);
+
+                if (workoutPlan == null)
+                {
+                    _logger.LogWarning("План тренировок для пользователя с ID {UserID} не найден.", model.UserId);
+                    return NotFound(new { message = "План тренировок не найден." });
+                }
+
+                var exercise = workoutPlan.Exercises
+                    .FirstOrDefault(e => e.ExerciseName == model.ExerciseName);
+
+                if (exercise == null)
+                {
+                    _logger.LogWarning("Упражнение {ExerciseName} не найдено в плане пользователя с ID {UserID}.", model.ExerciseName, model.UserId);
+                    return NotFound(new { message = "Упражнение не найдено." });
+                }
+
+                exercise.Weight = (exercise.Weight ?? 0) + model.WeightChange;
+                if (exercise.Weight < 0)
+                {
+                    exercise.Weight = 0;
+                }
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Вес для упражнения {ExerciseName} успешно обновлен для пользователя с ID {UserID}.", model.ExerciseName, model.UserId);
+                return Ok(new { message = "Вес успешно обновлен.", NewWeight = exercise.Weight });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при обновлении веса для упражнения {ExerciseName} пользователя с ID {UserID}.", model.ExerciseName, model.UserId);
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка при обновлении веса." });
+            }
+        }
+
         // Редактирование упражнения в плане
         [HttpPut("edit-exercise")]
         public async Task<IActionResult> EditExercise(int userId, [FromBody] EditExerciseModel model)
@@ -218,7 +410,6 @@ namespace FitAI.Controllers
                     return NotFound(new { message = "Упражнение не найдено." });
                 }
 
-                // Обновляем данные упражнения
                 exercise.ExerciseName = model.ExerciseName ?? exercise.ExerciseName;
                 exercise.ExerciseType = model.ExerciseType ?? exercise.ExerciseType;
                 exercise.Weight = model.Weight ?? exercise.Weight;
@@ -250,7 +441,6 @@ namespace FitAI.Controllers
 
                 if (existingPlan == null)
                 {
-                    // Создаем новый план, если он не найден
                     existingPlan = new WorkoutPlan
                     {
                         UserID = userId,
@@ -260,20 +450,18 @@ namespace FitAI.Controllers
                         CreatedDate = updatedPlan.CreatedDate
                     };
                     _context.WorkoutPlans.Add(existingPlan);
-                    await _context.SaveChangesAsync(); // Сохраняем, чтобы получить WorkoutPlanId
+                    await _context.SaveChangesAsync();
                 }
                 else
                 {
-                    // Обновляем существующий план
                     existingPlan.PlanName = updatedPlan.PlanName;
                     existingPlan.Description = updatedPlan.Description;
                     existingPlan.LevelOfPhysicalFitness = updatedPlan.LevelOfPhysicalFitness;
                 }
 
-                // Обновляем или добавляем упражнения
                 foreach (var exerciseDto in updatedPlan.Exercises)
                 {
-                    if (exerciseDto.WorkoutExerciseId == 0) // Новое упражнение
+                    if (exerciseDto.WorkoutExerciseId == 0)
                     {
                         var newExercise = new WorkoutExercise
                         {
@@ -286,7 +474,7 @@ namespace FitAI.Controllers
                         };
                         _context.WorkoutExercises.Add(newExercise);
                     }
-                    else // Обновляем существующее упражнение
+                    else
                     {
                         var existingExercise = existingPlan.Exercises
                             .FirstOrDefault(e => e.WorkoutExerciseId == exerciseDto.WorkoutExerciseId);
@@ -314,3 +502,5 @@ namespace FitAI.Controllers
         }
     }
 }
+
+

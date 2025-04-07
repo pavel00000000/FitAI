@@ -43,7 +43,7 @@ namespace FitAI.Controllers
             public int? Approaches { get; set; }
         }
 
-        // Модель для ввода показателей силы (первый скриншот)
+        // Модель для ввода показателей силы 
         public class PowerIndicatorInputModel
         {
             public int UserId { get; set; }
@@ -65,107 +65,6 @@ namespace FitAI.Controllers
             public int UserId { get; set; }
             public string ExerciseName { get; set; }
             public int WeightChange { get; set; }
-        }
-
-        // Получение готовых планов
-        [HttpGet("ready-plans")]
-        public async Task<IActionResult> GetReadyPlans()
-        {
-            _logger.LogInformation("Запрос готовых тренировочных планов.");
-
-            try
-            {
-                var readyPlans = new List<WorkoutPlan>
-                {
-                    new WorkoutPlan
-                    {
-                        PlanName = "Для новичка 3 раза в неделю",
-                        Description = "Базовая программа для начинающих с акцентом на основные упражнения.",
-                        LevelOfPhysicalFitness = PhysicalFitnessLevel.Beginner
-                    },
-                    new WorkoutPlan
-                    {
-                        PlanName = "Силовая программа для продвинутых",
-                        Description = "Интенсивные тренировки для увеличения силы и мышечной массы.",
-                        LevelOfPhysicalFitness = PhysicalFitnessLevel.Advanced
-                    },
-                    new WorkoutPlan
-                    {
-                        PlanName = "Функциональный тренинг",
-                        Description = "Программа для улучшения общей физической подготовки.",
-                        LevelOfPhysicalFitness = PhysicalFitnessLevel.Intermediate
-                    }
-                };
-
-                _logger.LogInformation("Готовые планы успешно возвращены.");
-                return Ok(readyPlans);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ошибка при получении готовых планов.");
-                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка при получении готовых планов." });
-            }
-        }
-
-        // Генерация персонализированного плана
-        [HttpPost("generate-plan")]
-        public async Task<IActionResult> GenerateWorkoutPlan(int userId, [FromBody] GenerateWorkoutModel model)
-        {
-            _logger.LogInformation("Попытка генерации персонализированного плана для пользователя с ID: {UserID}", userId);
-
-            try
-            {
-                var user = await _context.Users
-                    .Include(u => u.UserProfile)
-                    .FirstOrDefaultAsync(u => u.UserID == userId);
-
-                if (user == null)
-                {
-                    _logger.LogWarning("Пользователь с ID {UserID} не найден.", userId);
-                    return NotFound(new { message = "Пользователь не найден." });
-                }
-
-                // Логика генерации плана (упрощённая версия, можно дополнить ИИ-алгоритмами)
-                var workoutPlan = new WorkoutPlan
-                {
-                    UserID = userId,
-                    PlanName = $"Персонализированный план для {user.UserProfile.FullName}",
-                    Description = $"Сгенерированный план на основе целей: {model.Goals}, предпочтений: {model.Preferences}, ограничений: {model.Restrictions}",
-                    LevelOfPhysicalFitness = model.LevelOfPhysicalFitness ?? user.UserProfile.LevelOfPhysicalFitness ?? PhysicalFitnessLevel.Beginner
-                };
-
-                // Добавляем базовые упражнения (пример)
-                workoutPlan.Exercises = new List<WorkoutExercise>
-                {
-                    new WorkoutExercise
-                    {
-                        ExerciseName = "Приседания",
-                        ExerciseType = "Leg Press",
-                        Weight = 50,
-                        Repetitions = 10,
-                        Approaches = 3
-                    },
-                    new WorkoutExercise
-                    {
-                        ExerciseName = "Жим лежа",
-                        ExerciseType = "Bench Press",
-                        Weight = 40,
-                        Repetitions = 8,
-                        Approaches = 4
-                    }
-                };
-
-                _context.WorkoutPlans.Add(workoutPlan);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Персонализированный план успешно сгенерирован для пользователя с ID {UserID}.", userId);
-                return Ok(new { message = "План успешно сгенерирован.", WorkoutPlanId = workoutPlan.WorkoutPlanId });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ошибка при генерации плана для пользователя с ID {UserID}.", userId);
-                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Ошибка при генерации плана." });
-            }
         }
 
         // Получение плана пользователя
@@ -216,7 +115,7 @@ namespace FitAI.Controllers
             }
         }
 
-        // Получение показателей силы (второй скриншот)
+        // Получение показателей силы 
         [HttpGet("power-indicators/{userId}")]
         public async Task<IActionResult> GetPowerIndicators(int userId)
         {
@@ -255,7 +154,7 @@ namespace FitAI.Controllers
             }
         }
 
-        // Сохранение показателей силы (первый скриншот)
+        // Сохранение показателей силы 
         [HttpPost("save-power-indicators")]
         public async Task<IActionResult> SavePowerIndicators([FromBody] PowerIndicatorInputModel model)
         {

@@ -16,7 +16,7 @@ namespace FitAI.Models
         [MinLength(6, ErrorMessage = "Пароль должен содержать минимум 6 символов.")]
         public string Password { get; set; }
 
-        // Навигационное свойство для профиля
+        
         public virtual UserProfile UserProfile { get; set; }
     }
 
@@ -25,7 +25,7 @@ namespace FitAI.Models
         [Key, ForeignKey("User")]
         public int UserID { get; set; }
 
-        public virtual User User { get; set; } // Навигационное свойство
+        public virtual User User { get; set; } 
 
         [StringLength(100, ErrorMessage = "Имя не должно превышать 100 символов.")]
         public string FullName { get; set; }
@@ -80,7 +80,7 @@ namespace FitAI.Models
 
         public DateTime CreatedDate { get; set; } = DateTime.Now;
 
-        // Игнорируем это свойство при сериализации/десериализации, чтобы избежать необходимости передавать объект User
+        
         [JsonIgnore]
         public virtual User User { get; set; }
 
@@ -100,7 +100,7 @@ namespace FitAI.Models
         public string ExerciseName { get; set; }
 
         [Required(ErrorMessage = "Тип упражнения обязателен.")]
-        public string ExerciseType { get; set; } // Например, "Deadlift", "Bench Press", "Leg Press"
+        public string ExerciseType { get; set; } 
 
         [Range(0, 1000, ErrorMessage = "Вес должен быть в диапазоне от 0 до 1000 кг.")]
         public int? Weight { get; set; }
@@ -111,7 +111,7 @@ namespace FitAI.Models
         [Range(1, 10, ErrorMessage = "Количество подходов должно быть от 1 до 10.")]
         public int? Approaches { get; set; }
 
-        // Игнорируем это свойство при сериализации/десериализации
+        
         [JsonIgnore]
         public virtual WorkoutPlan WorkoutPlan { get; set; }
     }

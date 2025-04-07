@@ -57,11 +57,6 @@ namespace FitAI.Controllers
         }
 
 
-
-
-
-
-
         // Регистрация пользователя
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterModel model)
@@ -158,7 +153,7 @@ namespace FitAI.Controllers
             try
             {
                 var user = await _context.Users
-                    .Include(u => u.UserProfile) // Подгружаем существующий профиль
+                    .Include(u => u.UserProfile) 
                     .FirstOrDefaultAsync(u => u.UserID == userId);
 
                 if (user == null)
@@ -167,17 +162,17 @@ namespace FitAI.Controllers
                     return NotFound(new { message = "Пользователь не найден." });
                 }
 
-                // Если профиля еще нет, создаем новый
+                
                 if (user.UserProfile == null)
                 {
                     user.UserProfile = new UserProfile { UserID = userId };
                 }
 
-                // Обновляем данные профиля
+                
                 user.UserProfile.FullName = model.FullName;
                 user.UserProfile.BodyType = model.BodyType;
                 user.UserProfile.Height = model.Height;
-                user.UserProfile.Weight = model.Weight; // Исправлено с model.Width на model.Weight
+                user.UserProfile.Weight = model.Weight; 
                 user.UserProfile.Age = model.Age;
                 user.UserProfile.Sex = model.Sex;
                 user.UserProfile.MainGoals = model.MainGoals;
